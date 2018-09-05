@@ -1,0 +1,174 @@
+# Initialize necessary libraries:
+using PyPlot
+using StatsBase
+
+# Set constant parameters:
+b1=0.01
+b2=0.01
+c=0.2
+sigma=0.01
+n_iter=5000
+dim=20
+srand(123)
+
+# Function defining a map of affinity rates:
+function affinity_field(aff1, aff2, dim)
+    affinity = zeros(dim,dim)
+    for a in 1:dim
+        for b in 1:dim
+            if field[a,b]==1
+                affinity[a,b]=aff1
+                else
+                affinity[a,b]=aff2
+            end
+        end
+    end
+    return affinity
+end
+
+# Function defining a partner for interaction:
+function choose_partner(agent_1_x, agent_1_y, dim)
+    while true
+        n_1_x = mod(agent_1_x -1 - 1, dim) + 1
+        n_1_y = mod(agent_1_y -1 - 1, dim) + 1
+        n_2_x = mod(agent_1_x -1 - 1, dim) + 1
+        n_2_y = mod(agent_1_y +0 - 1, dim) + 1
+        n_3_x = mod(agent_1_x -1 - 1, dim) + 1
+        n_3_y = mod(agent_1_y +1 - 1, dim) + 1
+        n_4_x = mod(agent_1_x +0 - 1, dim) + 1
+        n_4_y = mod(agent_1_y -1 - 1, dim) + 1
+        n_5_x = mod(agent_1_x +0 - 1, dim) + 1
+        n_5_y = mod(agent_1_y +1 - 1, dim) + 1
+        n_6_x = mod(agent_1_x +1 - 1, dim) + 1
+        n_6_y = mod(agent_1_y -1 - 1, dim) + 1
+        n_7_x = mod(agent_1_x +1 - 1, dim) + 1
+        n_7_y = mod(agent_1_y +0 - 1, dim) + 1
+        n_8_x = mod(agent_1_x +1 - 1, dim) + 1
+        n_8_y = mod(agent_1_y +1 - 1, dim) + 1
+        choosing_neighbour = rand([(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)])
+        dx, dy = choosing_neighbour
+        r_x = mod(agent_1_x + dx - 1, dim) + 1
+        r_y = mod(agent_1_y + dy - 1, dim) + 1
+        agent_2 = (r_x, r_y)
+        if index == Int(field[agent_1_x, agent_1_y]==field[n_1_x, n_1_y]) || index == Int(field[agent_1_x, agent_1_y]==field[n_2_x, n_2_y]) || index == Int(field[agent_1_x, agent_1_y]==field[n_3_x, n_3_y]) || index == Int(field[agent_1_x, agent_1_y]==field[n_4_x, n_4_y]) || index == Int(field[agent_1_x, agent_1_y]==field[n_5_x, n_5_y]) || index == Int(field[agent_1_x, agent_1_y]==field[n_6_x, n_6_y]) || index == Int(field[agent_1_x, agent_1_y]==field[n_7_x, n_7_y]) || index == Int(field[agent_1_x, agent_1_y]==field[n_8_x, n_8_y])
+            if index == Int(field[agent_1_x, agent_1_y]==field[r_x, r_y])
+                return agent_2
+                break
+            end
+            else
+            global index =  abs(index-1)
+        end
+    end
+end
+
+# Function of interaction between agents and change of affinity map:
+function interact(agent_1_x, agent_1_y, agent_2_x, agent_2_y)
+    agent_1_aff_old = affinity[agent_1_x, agent_1_y]
+    agent_2_aff_old = affinity[agent_2_x, agent_2_y]
+    if index == 1
+        affinity[agent_1_x, agent_1_y] = agent_1_aff_old - b1 + c*(agent_2_aff_old - agent_1_aff_old) + sigma*randn()
+        affinity[agent_2_x, agent_2_y] = agent_2_aff_old - b1 - c*(agent_2_aff_old - agent_1_aff_old) + sigma*randn()
+    else
+        affinity[agent_1_x, agent_1_y] = agent_1_aff_old + b2 + c*(agent_2_aff_old - agent_1_aff_old) + sigma*randn()
+        affinity[agent_2_x, agent_2_y] = agent_2_aff_old + b2 - c*(agent_2_aff_old - agent_1_aff_old) + sigma*randn()
+    end
+    return affinity
+end
+
+# Function starting simulation:
+function simulate(dim, aff1, aff2, n_iter, field)
+    global affinity = affinity_field(aff1, aff2, dim)
+    seq = Tuple{Int, Int}[(x,y) for x in 1:dim for y in 1:dim]
+    for i in 1:n_iter
+        agent_1 = rand(seq)
+        agent_1_x, agent_1_y = agent_1
+        agent_1_aff = affinity[agent_1_x, agent_1_y]
+        global index = sample([0,1], Weights([agent_1_aff/2, 1-agent_1_aff/2]))
+        agent_2 = choose_partner(agent_1_x, agent_1_y, dim)
+        agent_2_x, agent_2_y = agent_2
+        affinity = interact(agent_1_x, agent_1_y, agent_2_x, agent_2_y)
+        group_1_avg_aff[i] = sum((field.==1).*affinity)/sum((field.==1))
+        group_2_avg_aff[i] = sum((field.==2).*affinity)/sum((field.==2))
+    end
+end
+
+# Scenario 1:
+# Parameters
+aff1=0.7
+aff2=0.2
+field = rand(1:2, dim, dim)
+
+# Start the simulation
+group_1_avg_aff = zeros(n_iter)
+group_2_avg_aff = zeros(n_iter)
+simulate(dim, aff1, aff2, n_iter, field)
+
+print(group_1_avg_aff)
+print(group_2_avg_aff)
+
+# Plot the dispersion of agents
+img = imshow(field)
+
+# Affinity plot
+plot(1:n_iter, [group_1_avg_aff group_2_avg_aff])
+
+# Scenario 2:
+# Parameters
+aff1 = 0.7
+aff2 = 0.2
+row = [1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2]
+field = [row; row; row; row; row; row; row; row; row; row; row; row; row; row; row; row; row; row; row; row]
+
+# Start the simulation
+group_1_avg_aff = zeros(n_iter)
+group_2_avg_aff = zeros(n_iter)
+simulate(dim, aff1, aff2, n_iter, field)
+
+print(group_1_avg_aff)
+print(group_2_avg_aff)
+
+# Plot the dispersion of agents
+img = imshow(field)
+
+# Affinity plot
+plot(1:n_iter, [group_1_avg_aff group_2_avg_aff])
+
+# Scenario 3:
+# Parameters
+aff1 = 0.8
+aff2 = 0.5
+row1 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row2 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row3 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row4 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row5 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row6 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row7 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row8 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row9 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row10 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row11 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row12 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row13 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row14 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row15 = [1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1]
+row16 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row17 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row18 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row19 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+row20 = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+field = [row1; row2; row3; row4; row5; row6; row7; row8; row9; row10; row11; row12; row13; row14; row15; row16; row17; row18; row19; row20]
+
+# Start the simulation
+group_1_avg_aff = zeros(n_iter)
+group_2_avg_aff = zeros(n_iter)
+simulate(dim, aff1, aff2, n_iter, field)
+
+print(group_1_avg_aff)
+print(group_2_avg_aff)
+
+# Plot the dispersion of agents
+img = imshow(field)
+
+# Affinity map
+# plot(1:n_iter, [group_1_avg_aff group_2_avg_aff])
